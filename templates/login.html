@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CuriBot.ai — Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- ── Background layers ────────────────────────── -->
+<div class="space-base"></div>
+<div class="stars-micro"></div>
+<div class="stars-small"></div>
+<div class="stars-medium"></div>
+<div class="stars-large"></div>
+
+<div class="shooting-stars">
+    <div class="shooting-star ss-1"></div>
+    <div class="shooting-star ss-2"></div>
+    <div class="shooting-star ss-3"></div>
+    <div class="shooting-star ss-4"></div>
+    <div class="shooting-star ss-5"></div>
+</div>
+
+<div class="nebula-blob blob-1"></div>
+<div class="nebula-blob blob-2"></div>
+<div class="nebula-blob blob-3"></div>
+<div class="nebula-blob blob-4"></div>
+<div class="nebula-blob blob-5"></div>
+<div class="nebula-blob blob-6"></div>
+<div class="nebula-blob blob-7"></div>
+<div class="dust"></div>
+<div class="vignette"></div>
+<div class="scanlines"></div>
+
+<canvas id="constellation-canvas"></canvas>
+
+<!-- ── Login Card ───────────────────────────────── -->
+<div id="login-container">
+
+    <div class="login-header">
+        <span class="login-logo">🤖</span>
+        <h1>CuriBot<span class="ai-badge">AI</span></h1>
+        <p>Your Python tutor awaits — sign in to continue</p>
+    </div>
+
+    <div id="error-msg" class="error-msg">
+        ⚠️ Invalid username or password. Please try again.
+    </div>
+
+    <div class="form-group">
+        <label for="username">Username or Email</label>
+        <div class="input-icon-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" id="username" placeholder="Enter your username…" autocomplete="username" />
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="password">Password</label>
+        <div class="input-icon-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="password" placeholder="Enter your password…" autocomplete="current-password" />
+        </div>
+    </div>
+
+    <div class="form-options">
+        <label class="remember-me">
+            <input type="checkbox" id="remember" />
+            Remember me
+        </label>
+        <a href="{{ url_for('forgot_password') }}" class="forgot-link" id="forgot-link">Forgot password?</a>
+    </div>
+
+    <button class="login-btn" id="login-btn">
+        <span class="login-btn-text">🚀 Sign In</span>
+    </button>
+
+    <div class="divider">
+        <span></span>
+        <p>or continue with</p>
+        <span></span>
+    </div>
+
+    <div class="oauth-btns">
+        <button class="oauth-btn" onclick="oauthLogin('google')">
+            <span>🌐</span> Google
+        </button>
+        <button class="oauth-btn" onclick="oauthLogin('github')">
+            <span>🐙</span> GitHub
+        </button>
+    </div>
+
+    <p class="signup-text">
+        Don't have an account?
+        <a href="{{ url_for('signup') }}" class="signup-link">Create one free →</a>
+    </p>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     CONSTELLATION ENGINE (shared)
+════════════════════════════════════════════════════════ -->
+<script>
+(function() {
+    const canvas = document.getElementById('constellation-canvas');
+    const ctx    = canvas.getContext('2d');
+    const CFG = {
+        starCount: 140, maxLinkDist: 140, starMinR: 0.8, starMaxR: 2.4,
+        starMinSpeed: 0.08, starMaxSpeed: 0.30,
+        starColors: ['rgba(255,255,255,','rgba(200,180,255,','rgba(180,220,255,','rgba(168,85,247,','rgba(34,211,238,','rgba(244,114,182,'],
+        linkColor: 'rgba(168,85,247,', linkColorAlt: 'rgba(34,211,238,',
+        linkMaxOpacity: 0.38, pulseStarCount: 12, mouseRadius: 160, mouseLink: true, fps: 60,
+    };
+    let W, H, stars = [], mouse = { x: -9999, y: -9999 }, animId, lastTime = 0;
+    const interval = 1000 / CFG.fps;
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    function makeStar(i) {
+        const colors = CFG.starColors;
+        return { x: Math.random()*W, y: Math.random()*H, r: CFG.starMinR + Math.random()*(CFG.starMaxR-CFG.starMinR), vx: (Math.random()-0.5)*2*CFG.starMaxSpeed, vy: (Math.random()-0.5)*2*CFG.starMaxSpeed, color: colors[Math.floor(Math.random()*colors.length)], pulse: i < CFG.pulseStarCount, pulseT: Math.random()*Math.PI*2, pulseS: 0.015+Math.random()*0.025, baseAlpha: 0.55+Math.random()*0.45, alpha: 0, alphaT: Math.random()*Math.PI*2, alphaS: 0.008+Math.random()*0.016 };
+    }
+    function initStars() { stars = Array.from({length: CFG.starCount}, (_, i) => makeStar(i)); }
+    function wrap(s) { const m=5; if(s.x<-m)s.x=W+m; if(s.x>W+m)s.x=-m; if(s.y<-m)s.y=H+m; if(s.y>H+m)s.y=-m; }
+    function drawStar(s) {
+        s.alphaT += s.alphaS; s.alpha = s.baseAlpha*(0.6+0.4*Math.sin(s.alphaT));
+        let r = s.r; if(s.pulse){ s.pulseT+=s.pulseS; r=s.r*(1+0.45*Math.sin(s.pulseT)); }
+        ctx.beginPath(); ctx.arc(s.x,s.y,r,0,Math.PI*2); ctx.fillStyle=s.color+s.alpha+')'; ctx.fill();
+        if(s.alpha>0.75&&r>1.5){ const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,r*4); g.addColorStop(0,s.color+(s.alpha*0.5)+')'); g.addColorStop(1,s.color+'0)'); ctx.beginPath(); ctx.arc(s.x,s.y,r*4,0,Math.PI*2); ctx.fillStyle=g; ctx.fill(); }
+    }
+    function drawLink(ax,ay,bx,by,dist,colorBase) {
+        const t=1-dist/CFG.maxLinkDist; const op=t*CFG.linkMaxOpacity; if(op<0.01)return;
+        ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by);
+        const lg=ctx.createLinearGradient(ax,ay,bx,by); lg.addColorStop(0,colorBase+op+')'); lg.addColorStop(0.5,colorBase+(op*1.5)+')'); lg.addColorStop(1,colorBase+op+')');
+        ctx.strokeStyle=lg; ctx.lineWidth=0.6+t*0.8; ctx.stroke();
+        const mx=(ax+bx)/2,my=(ay+by)/2; ctx.beginPath(); ctx.arc(mx,my,0.6+t*0.6,0,Math.PI*2); ctx.fillStyle=colorBase+(op*1.2)+')'; ctx.fill();
+    }
+    function draw(now) {
+        animId = requestAnimationFrame(draw);
+        const delta = now - lastTime; if(delta<interval)return; lastTime=now-(delta%interval);
+        ctx.clearRect(0,0,W,H);
+        for(const s of stars){ s.x+=s.vx; s.y+=s.vy; wrap(s); }
+        for(let i=0;i<stars.length;i++){ const si=stars[i]; for(let j=i+1;j<stars.length;j++){ const sj=stars[j],dx=si.x-sj.x,dy=si.y-sj.y,dist=Math.sqrt(dx*dx+dy*dy); if(dist<CFG.maxLinkDist){drawLink(si.x,si.y,sj.x,sj.y,dist,((i+j)%3===0)?CFG.linkColorAlt:CFG.linkColor);} } }
+        if(CFG.mouseLink){ for(const s of stars){ const dx=s.x-mouse.x,dy=s.y-mouse.y,dist=Math.sqrt(dx*dx+dy*dy); if(dist<CFG.mouseRadius)drawLink(mouse.x,mouse.y,s.x,s.y,dist,'rgba(34,211,238,'); } }
+        for(const s of stars) drawStar(s);
+        if(mouse.x>0){ ctx.beginPath(); ctx.arc(mouse.x,mouse.y,2.5,0,Math.PI*2); const mg=ctx.createRadialGradient(mouse.x,mouse.y,0,mouse.x,mouse.y,12); mg.addColorStop(0,'rgba(34,211,238,0.9)'); mg.addColorStop(1,'rgba(34,211,238,0.0)'); ctx.fillStyle=mg; ctx.fill(); }
+    }
+    window.addEventListener('resize', () => { resize(); initStars(); });
+    window.addEventListener('mousemove', e => { mouse.x=e.clientX; mouse.y=e.clientY; });
+    window.addEventListener('mouseleave', () => { mouse.x=-9999; mouse.y=-9999; });
+    window.addEventListener('touchmove', e => { const t=e.touches[0]; mouse.x=t.clientX; mouse.y=t.clientY; }, {passive:true});
+    window.addEventListener('touchend', () => { mouse.x=-9999; mouse.y=-9999; });
+    resize(); initStars(); lastTime=performance.now(); animId=requestAnimationFrame(draw);
+})();
+</script>
+
+<script>
+    const loginBtn  = document.getElementById('login-btn');
+    const errorMsg  = document.getElementById('error-msg');
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
+    const forgotLink = document.getElementById('forgot-link');
+
+    function showError(msg) {
+        errorMsg.textContent = '⚠️ ' + msg;
+        errorMsg.classList.add('show');
+    }
+
+    function hideError() {
+        errorMsg.classList.remove('show');
+    }
+
+    async function doLogin() {
+        hideError();
+        const username = usernameEl.value.trim();
+        const password = passwordEl.value.trim();
+
+        if (!username) { showError('Please enter your username or email.'); usernameEl.focus(); return; }
+        if (!password) { showError('Please enter your password.'); passwordEl.focus(); return; }
+
+        loginBtn.disabled = true;
+        loginBtn.querySelector('.login-btn-text').textContent = '⏳ Signing in…';
+
+        try {
+            const res  = await fetch('/login', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                loginBtn.querySelector('.login-btn-text').textContent = '✅ Success!';
+                setTimeout(() => { window.location.href = '/'; }, 600);
+            } else {
+                showError(data.message || 'Invalid credentials. Please try again.');
+                loginBtn.disabled = false;
+                loginBtn.querySelector('.login-btn-text').textContent = '🚀 Sign In';
+            }
+        } catch {
+            showError('Cannot reach the server. Is Flask running?');
+            loginBtn.disabled = false;
+            loginBtn.querySelector('.login-btn-text').textContent = '🚀 Sign In';
+        }
+    }
+
+    function oauthLogin(provider) {
+        window.location.href = '/auth/' + provider;
+    }
+
+    forgotLink.addEventListener('click', (event) => {
+        event.preventDefault();
+        const username = encodeURIComponent(usernameEl.value.trim());
+        const baseUrl = forgotLink.getAttribute('href');
+        window.location.href = username ? `${baseUrl}?username=${username}` : baseUrl;
+    });
+
+    loginBtn.addEventListener('click', doLogin);
+    [usernameEl, passwordEl].forEach(el =>
+        el.addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); })
+    );
+    [usernameEl, passwordEl].forEach(el =>
+        el.addEventListener('input', hideError)
+    );
+</script>
+</body>
+</html>
